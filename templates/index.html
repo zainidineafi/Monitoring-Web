@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="Responsive Admin Dashboard Template">
+        <meta name="keywords" content="admin,dashboard">
+        <meta name="author" content="stacks">
+        <!-- The above 6 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        
+        <!-- Title -->
+        <title>Record Data Monitoring </title>
+
+        <!-- Styles -->
+        <link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700,800,900&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <link href="../static/assets/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+        <link href="../static/assets/plugins/font-awesome/css/all.min.css" rel="stylesheet">
+        <link href="../static/assets/plugins/toastr/toastr.min.css" rel="stylesheet">  
+
+      
+        <!-- Theme Styles -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <link href="../static/assets/css/lime.min.css" rel="stylesheet">
+        <link href="../static/assets/css/custom.css" rel="stylesheet">
+
+    </head> 
+    <body>
+        <div class='loader'>
+            <div class='spinner-grow text-primary' role='status'>
+                <span class='sr-only'>Loading...</span>
+            </div>
+        </div>
+        
+        <div class="title_cs">
+            <h1> Monitoring Penyiraman Tanaman Cabai</h1>
+        </div>
+        
+
+      
+      <div class="lime-container">
+        <div class="lime-body">
+          <div class="content mt-3">
+            <div class="col-lg-8 mx-auto">
+              <div class="card mb-3">
+                <div class="card-header text-center">
+                  Tekan tombol "Export" untuk mencetak tabel dalam bentuk Excel
+                </div>
+                <div class="card-body text-center">
+                  <button onclick="exportToExcel()" class="btn btn-primary btn-sm">Export</button>
+                </div>
+                
+              </div>
+
+              
+              <div class="card">
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                  <table id="data-table" class="table" border="1">
+                    <thead class="thead-dark">
+                      <tr>
+                        <th>Waktu</th>
+                        <th>Ouput ADC</th>
+                        <th>Kelembaban (%)</th>
+                        <th>Kondisi</th>
+                        <th>Status WaterPump</th>
+                      </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class = "card">
+                <div class = "card-body">
+                  <div class="chart-container mt-3">
+                    <canvas id="myChart"></canvas>
+                </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      
+        <script>
+          function resetData() {
+          const confirmation = confirm("Apakah Anda yakin ingin menghapus semua data?");
+
+          if (confirmation) {
+            // Menghapus semua data dari database Firebase
+            const app = firebase.initializeApp(firebaseConfig);
+            const database = firebase.database(app);
+            const dataRef = database.ref('Record Data');
+
+            dataRef.remove()
+              .then(() => {
+                alert("Data berhasil direset!");
+              })
+              .catch((error) => {
+                console.error("Gagal mereset data:", error);
+                alert("Gagal mereset data!");
+              });
+          }
+        }
+
+        </script>
+        <script type="module">
+          import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+          import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+        
+          const firebaseConfig = {
+            apiKey: "AIzaSyAICIdbY5unneO5-xne8E3DIOHsirEu8II",
+            authDomain: "arduesp-7cd41.firebaseapp.com",
+            databaseURL: "https://arduesp-7cd41-default-rtdb.firebaseio.com",
+            projectId: "arduesp-7cd41",
+            storageBucket: "arduesp-7cd41.appspot.com",
+            messagingSenderId: "960499683873",
+            appId: "1:960499683873:web:19784d48b2246e45dec960",
+            measurementId: "G-7DS6XHVGX9"
+            };
+
+            // Inisialisasi Firebase
+            const app = initializeApp(firebaseConfig);
+            const database = getDatabase(app);
+            const tableBody = document.getElementById('table-body');
+            let chartData = []; // Array untuk data kelembaban
+            let labels = []; // Array untuk data waktu
+
+            // Buat grafik dengan Chart.js pada saat halaman dimuat
+            document.addEventListener('DOMContentLoaded', () => {
+              const ctx = document.getElementById('myChart').getContext('2d');
+              const myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels: labels,
+                  datasets: [{
+                    label: 'Kelembaban',
+                    data: chartData,
+                    fill: false,
+                    borderColor: '#037AFB',
+                    tension: 0.1
+                  }]
+                },
+                options: {
+                  scales: {
+                        y: {
+                      beginAtZero: true,
+                      suggestedMax: 100
+                    }
+                  }
+                }
+              });
+
+              const updateChart = () => {
+              // Perbarui data pada grafik
+              myChart.data.labels = labels;
+              myChart.data.datasets[0].data = chartData;
+              myChart.update();
+            };
+
+            // Ambil data dari Firebase secara realtime
+            const dataRef = ref(database, 'Record Data');
+            onValue(dataRef, (snapshot) => {
+              tableBody.innerHTML = '';
+              chartData = []; // Reset data chart
+              labels = []; // Reset label chart
+
+              snapshot.forEach((childSnapshot) => {
+                const childData = childSnapshot.val();
+                let formattedKelembaban = `${childData.Kelembaban.toFixed(2)}%`;
+                let kondisi = childData.Kelembaban <= 30 ? 'Kering' : (childData.Kelembaban > 30 && childData.Kelembaban <= 60 ? 'Lembab' : 'Basah');
+                let statusSiram = childData.Kelembaban <= 30 ? 'Aktif' : 'Nonaktif';
+
+
+                chartData.push(childData.Kelembaban);
+                labels.push(childData.Waktu);
+
+                const row = `<tr>
+                              <td>${childData.Waktu}</td>
+                              <td>${childData.ADC}</td>
+                              <td>${formattedKelembaban}</td>
+                              <td>${kondisi}</td>
+                              <td>${statusSiram}</td>
+                            </tr>`;
+                tableBody.innerHTML += row;
+              });
+              updateChart();
+            });
+          });
+
+          </script>
+
+        <script>
+        function exportToExcel() {
+          const table = document.getElementById('data-table');
+          const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+
+          // Ambil sheet yang pertama (Sheet1)
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+
+          for (const cell in ws) {
+          if (cell.startsWith('C') && ws[cell].v !== 'Kelembaban') {
+            const numericValue = ws[cell].v;
+            if (!isNaN(numericValue)) {
+              ws[cell].t = 'n'; // Atur tipe sel sebagai numerik
+              ws[cell].v = numericValue; // Ubah nilai ke dalam format persentase
+              ws[cell].z = '0.00%'; // Tentukan format persentase dalam Excel
+            }
+          }
+        }
+          XLSX.writeFile(wb, 'data-export.xlsx');
+        }
+
+
+        </script>
+         
+        
+                <!-- JavaScript -->
+        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.4/dist/xlsx.full.min.js"></script>
+        <script>"../static/assets/js/custom.js"</script>
+        <script src="../static/assets/plugins/jquery/jquery-3.1.0.min.js"></script>
+        <script src="../static/assets/plugins/bootstrap/popper.min.js"></script>
+        <script src="../static/assets/plugins/bootstrap/js/bootstrap.min.js"></script>
+        <script src="../static/assets/plugins/jquery-slimscroll/jquery.slimscroll.min.js"></script>
+        <script src="../static/assets/plugins/toastr/toastr.min.js"></script>
+        <script src="../static/assets/js/lime.min.js"></script>
+        <script src="../static/assets/js/pages/dashboard.js"></script>
+    </body>
+</html>

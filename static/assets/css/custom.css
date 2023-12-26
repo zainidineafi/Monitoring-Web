@@ -1,0 +1,11 @@
+.title_cs {
+    text-align: center;
+    margin-top: 80px; /* Jarak dari bagian atas */
+    margin-bottom: 80px; /* Jarak ke elemen di bawahnya */
+  }
+  
+  .title_cs h1 {
+    color: #037AFB;
+    font-size: 32px;
+  }
+  
